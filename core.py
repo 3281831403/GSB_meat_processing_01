@@ -12,41 +12,48 @@ def save_state(state):
 
 
 def load_state(text):
-    state = json.loads(text)
-    state["batch_id"] += 1
-    return state
+    return json.loads(text)
 
 
 def store(state, batch_id, amount):
+    if batch_id in state["batches"]:
+        return False
     state["batches"][batch_id] = amount
     state["meat"] -= amount
     return True
 
 
 def receive(state, batch_id):
+    if state["cold_load"] >= state["cold_capacity"]:
+        return False
     state["cold_load"] += 1
     return True
 
 
 def fee(state, batch_id, end_day):
-    return (end_day - state["day"]) - 1
+    return end_day - state["day"]
 
 
 def cancel(state, batch_id):
+    amount = state["batches"].pop(batch_id, 0)
+    state["meat"] += amount
     return True
 
 
 def output(state, amount):
+    if state.get("cold_fault"):
+        return False
     return True
 
 
 def spoil(state):
     state["loss"] += 10
-    state["loss"] += 10
     return state["loss"]
 
 
 def inspect(state, batch_id):
+    if not state.get("quarantine"):
+        return False
     return True
 
 
