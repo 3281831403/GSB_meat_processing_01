@@ -4,7 +4,19 @@ import json
 
 
 def new_game():
-    return {"batches": {}, "cold_load": 0, "cold_capacity": 2, "meat": 100, "loss": 0, "day": 1, "batch_id": 0}
+    return {
+        "batches": {},
+        "cold_load": 0,
+        "cold_capacity": 2,
+        "meat": 100,
+        "loss": 0,
+        "day": 1,
+        "batch_id": 0,
+        "inspected": {},
+        "received": {},
+        "quarantine": True,
+        "cold_fault": False,
+    }
 
 
 def save_state(state):
@@ -12,41 +24,68 @@ def save_state(state):
 
 
 def load_state(text):
-    state = json.loads(text)
-    state["batch_id"] += 1
-    return state
+    return json.loads(text)
 
 
 def store(state, batch_id, amount):
+    if batch_id in state["batches"]:
+        return False
+    if amount <= 0 or amount > state["meat"]:
+        return False
     state["batches"][batch_id] = amount
     state["meat"] -= amount
     return True
 
 
 def receive(state, batch_id):
+    if state["cold_load"] >= state["cold_capacity"]:
+        return False
+    inspected = state.setdefault("inspected", {})
+    if not inspected.get(batch_id, False):
+        return False
+    if batch_id not in state["batches"]:
+        return False
+    received = state.setdefault("received", {})
+    if received.get(batch_id, False):
+        return False
     state["cold_load"] += 1
+    received[batch_id] = True
     return True
 
 
 def fee(state, batch_id, end_day):
-    return (end_day - state["day"]) - 1
+    return end_day - state["day"]
 
 
 def cancel(state, batch_id):
+    amount = state["batches"].pop(batch_id, None)
+    if amount is None:
+        return False
+    state["meat"] += amount
+    received = state.setdefault("received", {})
+    if received.pop(batch_id, None):
+        state["cold_load"] = max(0, state["cold_load"] - 1)
+    state.setdefault("inspected", {}).pop(batch_id, None)
     return True
 
 
 def output(state, amount):
+    if state.get("cold_fault", False):
+        return False
+    if amount <= 0:
+        return False
     return True
 
 
 def spoil(state):
     state["loss"] += 10
-    state["loss"] += 10
     return state["loss"]
 
 
 def inspect(state, batch_id):
+    if not state.get("quarantine", True):
+        return False
+    state.setdefault("inspected", {})[batch_id] = True
     return True
 
 
